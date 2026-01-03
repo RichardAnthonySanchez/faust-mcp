@@ -20,6 +20,9 @@ Runtime notes:
   - The worker keeps a single running DSP instance; compile_and_start replaces it.
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 import json
@@ -27,6 +30,7 @@ import os
 import subprocess
 import threading
 import sys
+
 
 
 MCP_HOST = os.environ.get("MCP_HOST", "127.0.0.1")
@@ -68,15 +72,27 @@ class NodeWorker:
         env["WEBAUDIO_ROOT"] = WEBAUDIO_ROOT
         env.setdefault("FAUST_MCP_ROOT", os.path.abspath(os.path.dirname(__file__)))
 
-        self._proc = subprocess.Popen(
-            ["node", WORKER_PATH],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-            env=env,
-        )
+        if not os.path.exists(WORKER_PATH):
+            print(f"Error: Worker not found at {WORKER_PATH}", file=sys.stderr)
+            raise FileNotFoundError(f"Worker not found at {WORKER_PATH}")
+
+        # Use 'node' directly for better control over stdin/stdout pipes
+        cmd = ["node", WORKER_PATH]
+        
+        try:
+            self._proc = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+                env=env,
+            )
+        except Exception as e:
+            print(f"Failed to start worker: {e}", file=sys.stderr)
+            raise
+
 
         def _drain_stderr(proc: subprocess.Popen[str]) -> None:
             """Forward worker stderr to this process stderr."""
@@ -226,5 +242,41 @@ def stop() -> str:
 if __name__ == "__main__":
     transport = os.environ.get("MCP_TRANSPORT", "sse")
     mount_path = os.environ.get("MCP_MOUNT_PATH")
+    default_dsp = os.environ.get("FAUST_DEFAULT_DSP")
+
     print(f"Faust realtime MCP server starting (transport={transport})")
+    
+    if default_dsp:
+        abs_path = os.path.abspath(default_dsp)
+        if os.path.exists(abs_path):
+            print(f"Auto-loading default DSP: {default_dsp}")
+            try:
+                with open(abs_path, "r") as f:
+                    dsp_code = f.read()
+                
+                # Give the worker a moment to fully initialize
+                import time
+                time.sleep(1)
+                
+                # Compile and start synchronously before MCP server starts
+                try:
+                    result = worker.request(
+                        "compile_and_start",
+                        {
+                            "dsp_code": dsp_code,
+                            "name": os.path.basename(default_dsp).replace(".dsp", ""),
+                            "latency_hint": "interactive",
+                            "input_source": "none",
+                        },
+                    )
+                    print(f"Default DSP loaded successfully: {result.get('name', 'unknown')}")
+                except Exception as e:
+                    print(f"Failed to auto-load DSP: {e}", file=sys.stderr)
+            except Exception as e:
+                print(f"Error reading default DSP {default_dsp}: {e}", file=sys.stderr)
+        else:
+            print(f"Warning: Default DSP file not found: {abs_path}", file=sys.stderr)
+
     mcp.run(transport=transport, mount_path=mount_path)
+
+

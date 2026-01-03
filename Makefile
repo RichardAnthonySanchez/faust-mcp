@@ -75,13 +75,13 @@ setup:
 	$(PYTHON) -m pip install -r requirements.txt
 
 setup-rt:
-	cd $(WEBAUDIO_ROOT) && npm install && npm run build
+	npm run setup:rt
 
 setup-ui:
-	cd ui && npm install
+	npm run setup:ui
 
 clean:
-	rm -rf $(TMPDIR) faust_server.log faust_server_sse.log __pycache__
+	rm -rf $(TMPDIR) faust_server.log faust_server_sse.log __pycache__ node_modules
 
 run-sse:
 	@mkdir -p $(TMPDIR)
@@ -117,6 +117,7 @@ client-daw:
 		$(if $(INPUT_FILE),--input-file $(INPUT_FILE),)
 
 run-rt:
+	npm run start:worker & \
 	WEBAUDIO_ROOT=$(WEBAUDIO_ROOT) MCP_TRANSPORT=sse MCP_HOST=$(MCP_HOST) MCP_PORT=$(MCP_PORT) \
 	$(PYTHON) faust_realtime_server.py
 
@@ -128,6 +129,7 @@ run-rt-ui:
 run-rt-stdio:
 	WEBAUDIO_ROOT=$(WEBAUDIO_ROOT) MCP_TRANSPORT=stdio \
 	$(PYTHON) faust_realtime_server.py
+
 
 run-rt-stdio-ui:
 	WEBAUDIO_ROOT=$(WEBAUDIO_ROOT) FAUST_UI_PORT=$(FAUST_UI_PORT) FAUST_UI_ROOT=$(FAUST_UI_ROOT) \

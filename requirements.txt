@@ -2,3 +2,5 @@ anyio
 httpx
 httpx-sse
 mcp
+python-dotenv
+

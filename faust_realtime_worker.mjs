@@ -12,6 +12,7 @@
  *   { "id": 1, "result": {...} } or { "id": 1, "error": "..." }
  */
 
+import 'dotenv/config';
 import { createInterface } from 'node:readline';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
@@ -19,6 +20,7 @@ import { Blob } from 'node:buffer';
 import path from 'node:path';
 import http from 'node:http';
 import fs from 'node:fs';
+
 
 // Base path to the node-web-audio-api checkout (default: submodule).
 const WEB_AUDIO_ROOT = process.env.WEBAUDIO_ROOT || 'external/node-web-audio-api';
@@ -33,10 +35,18 @@ const MCP_ROOT = process.env.FAUST_MCP_ROOT || process.cwd();
 // Ensure native bindings are resolved relative to the node-web-audio-api checkout.
 // The native .node bindings are loaded by CJS and expect process.cwd() to match.
 try {
-  process.chdir(WEB_AUDIO_ROOT);
+  const absoluteWebAudioRoot = path.resolve(WEB_AUDIO_ROOT);
+  if (!fs.existsSync(absoluteWebAudioRoot)) {
+    throw new Error(`Directory does not exist: ${absoluteWebAudioRoot}`);
+  }
+  process.chdir(absoluteWebAudioRoot);
 } catch (err) {
-  throw new Error(`Failed to chdir to WEBAUDIO_ROOT: ${WEB_AUDIO_ROOT} (${err})`);
+  console.error(`[Worker] Failed to chdir to WEBAUDIO_ROOT: ${WEB_AUDIO_ROOT}`);
+  console.error(`[Worker] Resolved path: ${path.resolve(WEB_AUDIO_ROOT)}`);
+  console.error(`[Worker] Error: ${err.message}`);
+  process.exit(1);
 }
+
 
 // Resolve all paths after chdir so relative roots work from anywhere.
 const resolvedRoot = path.resolve(process.cwd());
@@ -267,10 +277,10 @@ async function compileAndStart({
       if (faustNode) {
         faustNode.stop();
       }
-    } catch (_) {}
+    } catch (_) { }
     try {
       await audioContext.close();
-    } catch (_) {}
+    } catch (_) { }
     audioContext = null;
     faustNode = null;
   }
@@ -408,12 +418,12 @@ async function stop() {
   if (faustNode) {
     try {
       faustNode.stop();
-    } catch (_) {}
+    } catch (_) { }
   }
   if (audioContext) {
     try {
       await audioContext.close();
-    } catch (_) {}
+    } catch (_) { }
   }
   faustNode = null;
   audioContext = null;

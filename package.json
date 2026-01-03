@@ -1,0 +1,15 @@
+{
+  "name": "faust-mcp",
+  "version": "1.0.0",
+  "description": "Faust MCP Servers",
+  "main": "faust_realtime_worker.mjs",
+  "type": "module",
+  "scripts": {
+    "setup:rt": "git submodule update --init --recursive && cd external/node-web-audio-api && npm install && npm run build",
+    "setup:ui": "cd ui && npm install",
+    "start:worker": "node faust_realtime_worker.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  }
+}
